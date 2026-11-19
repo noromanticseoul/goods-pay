@@ -1,0 +1,10 @@
+{
+  "name": "goods-pay",
+  "version": "0.1.0",
+  "description": "1인 굿즈 판매자를 위한 굿즈 결제시스템 (QR + 계좌 송금 + 입금 알림 자동 확인)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED",
+  "private": true
+}
