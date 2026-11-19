@@ -3,6 +3,7 @@ const W = { step: 0, start: Date.now(), d: { version: 'none' } }; // 세팅 마�
 const TIMES = ['약 5분', '약 4분', '약 3분 20초', '약 1분 50초', '약 1분 10초', '마지막 단계'];
 let tab = 'dash', poll;
 const origin = location.origin;
+const BANKS = ['국민은행', '신한은행', '우리은행', '하나은행', '농협은행', '카카오뱅크', '토스뱅크', '케이뱅크', '기업은행', '새마을금고', '우체국', 'SC제일은행', '수협은행', '부산은행', '대구은행', '광주은행', '전북은행', '경남은행', '신협'];
 
 async function boot() {
   const st = await api('/api/state');
@@ -17,7 +18,7 @@ function keyLogin() {
 }
 
 // ───── 5분 초기 세팅 ─────
-function head(n) { return `<div class="top"><span>${n ? n + ' / 5' : '시작 전'}</span><span>${n === 5 ? '마지막 단계' : '남은 시간 ' + TIMES[n]}</span></div><div class="bar"><div style="width:${n ? n * 20 : 4}%"></div></div>`; }
+function head(n) { return (n ? '<div class="navr"><button class="back" id="bk">← 이전</button><button class="back" id="home">처음으로</button></div>' : '') + `<div class="top"><span>${n ? n + ' / 5' : '시작 전'}</span><span>${n === 5 ? '마지막 단계' : '남은 시간 ' + TIMES[n]}</span></div><div class="bar"><div style="width:${n ? n * 20 : 4}%"></div></div>`; }
 function wizard() {
   const d = W.d, s = W.step; app.classList.remove('wide');
   if (s === 0) app.innerHTML = head(0) + `<h1>5분이면<br>판매 준비 끝</h1><p>사업자등록이나 카드 단말기 없이, 지금 쓰는 계좌로 바로 받아요.</p>
@@ -35,7 +36,7 @@ function wizard() {
     app.querySelectorAll('.vc').forEach((b) => (b.onclick = () => { d.name = $('#name').value; d.version = b.dataset.v; wizard(); }));
   }
   if (s === 2) app.innerHTML = head(2) + `<h1>돈 받을 계좌를<br>알려주세요</h1>
-    <label class="f">은행<select id="bank">${['국민은행','신한은행','우리은행','하나은행','농협은행','카카오뱅크','토스뱅크','케이뱅크','기업은행','새마을금고','우체국'].map((b) => `<option ${d.bank === b ? 'selected' : ''}>${b}</option>`).join('')}</select></label>
+    <label class="f">은행<select id="bank">${BANKS.map((b) => `<option ${d.bank === b ? 'selected' : ''}>${b}</option>`).join('')}</select></label>
     <label class="f">계좌번호<input id="account" inputmode="numeric" value="${esc(d.account || '')}"></label>
     <label class="f">예금주<input id="holder" value="${esc(d.holder || d.bizName || '')}"></label>
     <div class="card"><b style="font-size:14px">있으면 더 편해요 <span class="mute">(선택)</span></b>
@@ -50,10 +51,20 @@ function wizard() {
     $('#cp').onclick = () => copy(hook, '웹훅 주소를 복사했어요');
     app.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => { app.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b)); $('#ta').classList.toggle('hide', b.dataset.t !== 'a'); $('#ti').classList.toggle('hide', b.dataset.t !== 'i'); }));
   }
-  if (s === 4) { app.innerHTML = head(4) + `<h1>첫 굿즈를<br>올려볼까요?</h1>` + productForm(); bindProductForm(async (p) => { W.product = p; W.step = 5; wizard(); }); return; }
-  if (s === 5) return testPay();
-  const nx = $('#nx'); if (nx) nx.onclick = next;
+  if (s === 4) {
+    W.items = W.items || [];
+    app.innerHTML = head(4) + `<h1>팔 굿즈를<br>올려볼까요?</h1><p>나중에 상품 탭에서 언제든 추가할 수 있어요.</p>` + (W.items.map((p) => `<div class="li">${p.images[0] ? `<img class="th" src="${p.images[0]}" alt="">` : '<div class="th"></div>'}<div class="t">${esc(p.name)}<small>${won(p.price)}</small></div></div>`).join('') || '<div class="card"><p>아직 올린 굿즈가 없어요.</p></div>') +
+      `<button class="b2" id="addp">+ 굿즈 추가</button><div class="sp"></div><button id="nx">${W.items.length ? '다음' : '건너뛰고 다음'}</button>`;
+    $('#addp').onclick = () => { app.innerHTML = NAV + '<h1>새 굿즈</h1>' + productForm(); bindNav(wizard, () => { W.step = 0; wizard(); }); bindProductForm((p) => { W.items.push(p); wizard(); }); };
+    $('#nx').onclick = () => { W.step = 5; wizard(); }; bindBack(); return;
+  }
+  if (s === 5) { testPay(); return; }
+  const nx = $('#nx'); if (nx) nx.onclick = next; bindBack();
 }
+const NAV = '<div class="navr"><button class="back" id="bk2">← 이전</button><button class="back" id="home">처음으로</button></div>';
+function bindNav(back, home) { $('#bk2').onclick = back; $('#home').onclick = home; }
+const toDash = () => { tab = 'dash'; render(); };
+function bindBack() { const h = $('#home'); if (h) h.onclick = () => { clearInterval(poll); W.step = 0; wizard(); }; const b = $('#bk'); if (b) b.onclick = () => { clearInterval(poll); W.step = Math.max(0, W.step - 1); wizard(); }; }
 async function next() {
   const d = W.d, v = (k) => $('#' + k)?.value?.trim();
   if (W.step === 1) { d.name = v('name'); if (!d.name) return toast('판매자 이름을 넣어주세요'); if (d.version === 'biz') { d.bizNo = v('bizNo'); d.bizName = v('bizName'); if ((d.bizNo || '').replace(/\D/g, '').length !== 10) return toast('사업자등록번호 10자리를 확인해주세요'); } }
@@ -70,7 +81,7 @@ async function testPay() {
    <div class="card"><div class="row"><span>계좌</span><b>${esc(W.d.bank)} ${esc(W.d.account)}</b></div><div class="row"><span>금액</span><b>${won(o.amount)}</b></div></div>
    <div class="card" id="chk"><p>○ 입금 알림 기다리는 중…</p></div><div class="sp"></div>
    <button class="b2" id="sim">알림 없이 시험해보기 (시뮬레이션)</button><button class="b2" id="skip">나중에 할게요 (수동 승인으로 시작)</button>`;
-  $('#sim').onclick = () => api('/api/simulate-deposit', { body: { text: `테스트님이 ${won(o.amount)}을 보냈어요` } });
+  bindBack(); $('#sim').onclick = () => api('/api/simulate-deposit', { body: { text: `테스트님이 ${won(o.amount)}을 보냈어요` } });
   $('#skip').onclick = () => { clearInterval(poll); tab = 'prod'; localStorage.setItem('gp_setup_s', '0'); main(); };
   clearInterval(poll); poll = setInterval(async () => {
     const r = await api('/api/orders/' + o.id); if (r.status !== 'paid') return;
@@ -90,13 +101,16 @@ function productForm() {
   <label class="f">최대 구매 수량<input id="pq" inputmode="numeric" value="10"></label><div class="sp"></div><button id="psave">등록하기</button>`;
 }
 function bindProductForm(done) {
-  const imgs = [];
-  const add = async (files) => { for (const f of [...files].slice(0, 5 - imgs.length)) imgs.push(await shrink(f)); $('#pics').innerHTML = imgs.map((s) => `<img class="th" style="width:100%;height:90px" src="${s}" alt="">`).join(''); };
-  $('#cam').onchange = (e) => add(e.target.files); $('#alb').onchange = (e) => add(e.target.files);
+  const imgs = []; // { src: 미리보기, data: 줄인 사진 }
+  const draw = () => { $('#pics').innerHTML = imgs.map((m, i) => `<div style="position:relative"><img class="th" style="width:100%;height:90px" src="${m.src}" alt="고른 사진 ${i + 1}"><button class="b3 sm" data-rm="${i}" aria-label="사진 빼기" style="position:absolute;top:4px;right:4px;height:26px;padding:0 8px">✕</button>${m.data ? '' : '<span class="small" style="position:absolute;left:6px;bottom:4px;color:#fff;text-shadow:0 1px 2px #000">준비 중</span>'}</div>`).join(''); $('#pics').querySelectorAll('[data-rm]').forEach((x) => (x.onclick = () => { imgs.splice(+x.dataset.rm, 1); draw(); })); };
+  const add = (files) => { for (const f of [...files].slice(0, 5 - imgs.length)) { const m = { src: URL.createObjectURL(f), data: '' }; imgs.push(m); shrink(f).then((d) => { m.data = d; m.src = d; draw(); }).catch(() => { imgs.splice(imgs.indexOf(m), 1); draw(); toast('이 사진은 열 수 없어요. 다른 사진을 골라주세요'); }); } draw(); };
+  $('#cam').onchange = (e) => { add(e.target.files); e.target.value = ''; }; $('#alb').onchange = (e) => { add(e.target.files); e.target.value = ''; };
   $('#psave').onclick = async () => {
-    const body = { name: $('#pn').value.trim(), price: $('#pp').value.replace(/\D/g, ''), noDiscount: !$('#pd').checked, maxQty: $('#pq').value, images: imgs };
+    if (imgs.some((m) => !m.data)) return toast('사진을 준비하는 중이에요. 잠시 후 눌러주세요');
+    const body = { name: $('#pn').value.trim(), price: $('#pp').value.replace(/\D/g, ''), noDiscount: !$('#pd').checked, maxQty: $('#pq').value, images: imgs.map((m) => m.data) };
     if (!body.name || !body.price) return toast('상품명과 가격을 넣어주세요');
-    try { done(await api('/api/products', { body })); } catch (e) { toast(e.message); }
+    $('#psave').disabled = true; $('#psave').textContent = '올리는 중…';
+    try { done(await api('/api/products', { body })); } catch (e) { toast(e.message); $('#psave').disabled = false; $('#psave').textContent = '등록하기'; }
   };
 }
 
@@ -108,11 +122,13 @@ function main() {
   app.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => { tab = b.dataset.t; render(); }));
   render(); poll = setInterval(() => tab === 'dash' && render(), 4000);
 }
+let RT = 0;
 async function render() {
+  const rt = ++RT, stale = () => rt !== RT;
   app.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === tab));
   const B = $('#body');
   if (tab === 'dash') {
-    const d = await api('/api/dashboard'), last = d.seller.lastDepositAt;
+    const d = await api('/api/dashboard'), last = d.seller.lastDepositAt; if (stale()) return;
     $('#live').innerHTML = last ? `<span class="dot"></span>마지막 알림 ${ago(last)}` : '<span class="mute">아직 알림 없음</span>';
     const pend = d.orders.filter((o) => o.status === 'pending'), unm = d.deposits.filter((x) => !x.orderId), crq = d.orders.filter((o) => o.cashReceipt && !o.cashReceipt.issued);
     B.innerHTML = `<div style="display:flex;gap:10px"><div class="card" style="flex:1"><p class="small">매출</p><b style="font-size:19px">${won(d.stats.sales)}</b></div><div class="card" style="flex:1"><p class="small">판매</p><b style="font-size:19px">${d.stats.count}건</b></div></div>
@@ -124,7 +140,7 @@ async function render() {
     B.querySelectorAll('[data-cr]').forEach((b) => (b.onclick = async () => { await api(`/api/orders/${b.dataset.cr}/cash-receipt-issued`, { body: {} }); render(); }));
   }
   if (tab === 'prod') {
-    const [ps, me] = await Promise.all([api('/api/products'), api('/api/seller')]), url = shopUrl(me.shopId);
+    const [ps, me] = await Promise.all([api('/api/products'), api('/api/seller')]), url = shopUrl(me.shopId); if (stale()) return;
     B.innerHTML = `<div class="cols"><div class="c2 sticky"><div class="card" style="align-items:center;text-align:center"><b style="font-size:17px">가게 QR 하나로 모든 굿즈를 팔아요</b><p class="small">손님이 찍으면 굿즈 목록이 열리고, 골라서 한 번에 결제해요.</p><div class="qr" id="sq"></div>
     <div style="display:flex;gap:8px;width:100%"><a class="btn b3" style="flex:1;height:50px" href="qr.html?s=${me.shopId}&mode=show" target="_blank">크게 띄우기</a><a class="btn b3" style="flex:1;height:50px" href="qr.html?s=${me.shopId}&mode=print" target="_blank">A4로 인쇄</a></div>
     <div style="display:flex;gap:8px;width:100%"><button class="b2" id="sqdl">QR 이미지 저장</button><a class="btn b2" href="${url}" target="_blank">손님 화면 보기</a></div></div></div>
@@ -132,23 +148,39 @@ async function render() {
     const c = qrCanvas(url, 220); c.setAttribute('aria-label', '가게 결제 QR'); $('#sq').append(c);
     $('#sqdl').onclick = () => { const a = document.createElement('a'); a.download = `가게QR_${me.name || me.shopId}.png`; a.href = qrCanvas(url, 1000).toDataURL(); a.click(); };
     B.querySelectorAll('[data-del]').forEach((b) => (b.onclick = async () => { if (confirm('이 굿즈를 내릴까요?')) { await api('/api/products/' + b.dataset.del, { method: 'DELETE' }); render(); } }));
-    $('#addp').onclick = () => { B.innerHTML = '<h2>새 굿즈 등록</h2>' + productForm(); bindProductForm(() => render()); };
+    $('#addp').onclick = () => { B.innerHTML = NAV + '<h2>새 굿즈 등록</h2>' + productForm(); bindNav(render, toDash); bindProductForm(() => render()); };
   }
   if (tab === 'code') {
-    const cs = await api('/api/codes');
-    B.innerHTML = `<div class="cols"><div class="c1"><p class="small">손님이 결제 직전 "할인 및 쿠폰" 칸에 입력하는 코드예요. 지인에게만 말이나 문자로 알려주세요.</p>` + cs.map((c) => `<div class="card"><div class="row"><b style="font-size:18px">${esc(c.code)}</b><label><input type="checkbox" data-c="${esc(c.code)}" ${c.active ? 'checked' : ''} style="width:22px;height:22px"></label></div><div class="row"><span>${esc(c.label)}</span><span>${c.type === 'percent' ? c.value + '%' : won(c.value)} 할인</span></div><div class="row small"><span>사용 ${c.used}회 · ${c.maxUses ? '최대 ' + c.maxUses + '회' : '무제한'}</span></div></div>`).join('') +
-      `</div><div class="c2 sticky"><h2>새 할인 코드</h2><label class="f">코드 · 손님이 입력할 글자<input id="cc" placeholder="예: 10"></label><div class="row"><select id="ct" style="width:40%"><option value="percent">비율 %</option><option value="amount">금액 원</option></select><input id="cv" inputmode="numeric" placeholder="10" style="width:58%"></div>
-      <label class="f">손님에게 보일 이름<input id="cl" value="지인 할인"></label><label class="f">사용 횟수 · 선택 (0 = 무제한)<input id="cm" inputmode="numeric" value="0"></label><button id="cs">저장</button></div></div>`;
+    const cs = await api('/api/codes'); if (stale()) return;
+    B.innerHTML = `<p class="small">손님이 결제 직전 "할인 및 쿠폰" 칸에 입력하는 코드예요. 지인에게만 말이나 문자로 알려주세요.</p>` + (cs.map((c) => `<div class="card"><div class="row"><b style="font-size:18px">${esc(c.code)}</b><label><input type="checkbox" data-c="${esc(c.code)}" ${c.active ? 'checked' : ''} style="width:22px;height:22px" aria-label="코드 켜기"></label></div><div class="row"><span>${esc(c.label)}</span><span>${c.type === 'percent' ? c.value + '%' : won(c.value)} 할인</span></div><div class="row small"><span>사용 ${c.used}회 · ${c.maxUses ? '최대 ' + c.maxUses + '회' : '무제한'}</span></div></div>`).join('') || '<div class="card"><p>아직 만든 할인 코드가 없어요.</p></div>') + `<button id="addc">+ 코드 추가</button>`;
     B.querySelectorAll('[data-c]').forEach((x) => (x.onchange = () => api('/api/codes/' + encodeURIComponent(x.dataset.c), { method: 'PATCH', body: { active: x.checked } })));
-    $('#cs').onclick = async () => { try { await api('/api/codes', { body: { code: $('#cc').value, type: $('#ct').value, value: $('#cv').value, label: $('#cl').value, maxUses: $('#cm').value } }); toast('저장했어요'); render(); } catch (e) { toast(e.message); } };
+    $('#addc').onclick = () => {
+      let uses = 0;
+      B.innerHTML = NAV + `<h2>새 할인 코드</h2><label class="f">코드 · 손님이 입력할 글자<input id="cc" placeholder="예: 10"></label><div class="row"><select id="ct" style="width:40%"><option value="percent">비율 %</option><option value="amount">금액 원</option></select><input id="cv" inputmode="numeric" placeholder="10" style="width:58%"></div>
+      <label class="f">손님에게 보일 이름<input id="cl" value="지인 할인"></label>
+      <div class="row"><span style="font-size:13px;font-weight:600">사용 횟수</span><div class="stp"><button id="um" aria-label="횟수 줄이기">−</button><b id="uv" style="min-width:64px">무제한</b><button id="up" aria-label="횟수 늘리기">+</button></div></div><p class="small">+ 를 누르면 횟수 제한이 생겨요. 끝까지 줄이면 무제한이에요.</p><div class="sp"></div><button id="cs">저장</button>`;
+      const show = () => ($('#uv').textContent = uses ? uses + '회' : '무제한');
+      $('#up').onclick = () => { uses = Math.min(999, uses + 1); show(); }; $('#um').onclick = () => { uses = Math.max(0, uses - 1); show(); };
+      bindNav(render, toDash);
+      $('#cs').onclick = async () => { try { await api('/api/codes', { body: { code: $('#cc').value, type: $('#ct').value, value: $('#cv').value, label: $('#cl').value, maxUses: uses } }); toast('저장했어요'); render(); } catch (e) { toast(e.message); } };
+    };
   }
   if (tab === 'set') {
-    const s = await api('/api/seller'), hook = `${origin}/api/deposit?s=${s.shopId}&token=${s.webhookToken}`;
-    B.innerHTML = `<div class="card"><div class="row"><b>${esc(s.bizName || s.name)}</b><span class="tag ${s.version === 'biz' ? 'to' : 'tg'}">${s.version === 'biz' ? '사업자 있는 버전' : '사업자 없는 버전'}</span></div><p class="small">${esc(s.bank)} ${esc(s.account)} · ${esc(s.holder)}</p></div>
+    const s = await api('/api/seller'), hook = `${origin}/api/deposit?s=${s.shopId}&token=${s.webhookToken}`; if (stale()) return;
+    B.innerHTML = `<div class="card"><div class="row"><b>${esc(s.bizName || s.name)}</b><span class="tag ${s.version === 'biz' ? 'to' : 'tg'}">${s.version === 'biz' ? '사업자 있는 버전' : '사업자 없는 버전'}</span></div><p class="small">${esc(s.bank)} ${esc(s.account)} · ${esc(s.holder)}</p><button class="b2" id="edit">판매 정보 · 계좌 수정</button></div>
     ${s.version === 'biz' ? `<div class="card"><div class="row"><b>카드·간편결제</b><span class="tag to">PG 연동 예정</span></div><p class="small">PG 심사(수일~2주)가 끝나면 연동합니다. 그동안은 송금으로 판매돼요.</p></div>` : ''}
     <label class="f">입금 알림 웹훅 주소<input readonly value="${esc(hook)}"></label><button class="b2" id="cp">주소 복사</button>
     <label class="f">판매자 키 (다른 기기 로그인용)<input readonly value="${esc(s.adminKey)}"></label>
     <h2>알림 시험</h2><p class="small">입금 알림 문구를 넣으면 실제 알림처럼 처리해요. 발표·연습용이에요.</p><textarea id="st" placeholder="홍길동님이 15,027원을 보냈어요"></textarea><button class="b2" id="sb">시험 알림 보내기</button>`;
+    $('#edit').onclick = () => {
+      B.innerHTML = NAV + `<h2>판매 정보 · 계좌 수정</h2><label class="f">판매자 이름<input id="e_name" value="${esc(s.name || '')}"></label>
+      <label class="f">은행<select id="e_bank">${BANKS.map((b) => `<option ${s.bank === b ? 'selected' : ''}>${b}</option>`).join('')}</select></label>
+      <label class="f">계좌번호<input id="e_account" inputmode="numeric" value="${esc(s.account || '')}"></label><label class="f">예금주<input id="e_holder" value="${esc(s.holder || '')}"></label>
+      <label class="f">토스 아이디 <span class="mute small">선택</span><input id="e_tossId" value="${esc(s.tossId || '')}"></label><label class="f">카카오페이 송금 링크 <span class="mute small">선택</span><input id="e_kakaoLink" value="${esc(s.kakaoLink || '')}"></label>
+      <p class="small">입금 확인 중인 주문은 바뀐 계좌가 아니라 원래 계좌로 안내됐을 수 있어요.</p><div class="sp"></div><button id="esave">저장</button>`;
+      bindNav(render, toDash);
+      $('#esave').onclick = async () => { const v = (k) => $('#e_' + k).value.trim(); const body = { name: v('name'), bank: v('bank'), account: v('account'), holder: v('holder'), tossId: v('tossId').replace(/^https?:\/\/toss\.me\//, ''), kakaoLink: v('kakaoLink') }; if (!body.name || !body.account || !body.holder) return toast('이름, 계좌번호, 예금주를 넣어주세요'); try { await api('/api/setup', { body }); toast('저장했어요'); render(); } catch (e) { toast(e.message); } };
+    };
     $('#cp').onclick = () => copy(hook); $('#sb').onclick = async () => { const r = await api('/api/simulate-deposit', { body: { text: $('#st').value } }); toast(r.orderId ? '주문과 연결됐어요' : '일치하는 주문이 없어요'); };
   }
 }

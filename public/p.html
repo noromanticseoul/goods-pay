@@ -48,13 +48,14 @@ async function pay(m) {
 }
 function wait() {
   app.classList.remove('wide');
-  app.innerHTML = `<h1>${won(order.amount)}을<br>정확히 보내주세요</h1>
+  app.innerHTML = `<div class="navr"><button class="back" id="bk">← 다시 고르기</button><a class="back" href="?s=${S.shopId}">처음으로</a></div><h1>${won(order.amount)}을<br>정확히 보내주세요</h1>
   <div class="card"><div class="row"><span>은행</span><b>${esc(S.bank)}</b></div><div class="row"><span>계좌</span><b>${esc(S.account)}</b></div><div class="row"><span>받는 분</span><b>${esc(S.holder)}</b></div>
   <div class="row"><span>금액</span><span style="display:flex;gap:8px;align-items:center"><b>${won(order.amount)}</b><button class="b3 sm" id="ca">금액 복사</button></span></div>
   <button class="b2" id="cc">계좌번호 복사</button></div>
   <div class="ring" aria-hidden="true"></div><h2 style="text-align:center">입금 확인 중이에요</h2>
   <p style="text-align:center">${esc(order.title)} · 주문 ${order.no}<br>보내고 나면 보통 10초 안에 바뀌어요. 이 화면을 켜두세요.</p>
   <div class="card hide" id="late"><b>30초가 지나도 그대로라면</b><p>판매자에게 이 화면을 보여주세요. 판매자가 바로 확인해 드려요.</p></div>`;
+  $('#bk').onclick = () => { clearInterval(poll); if (!PS.length) return (location.href = '?s=' + S.shopId); history.replaceState(null, '', '?s=' + S.shopId); page(); };
   $('#ca').onclick = () => copy(String(order.amount), '금액을 복사했어요'); $('#cc').onclick = () => copy(`${S.bank} ${S.account}`, '계좌번호를 복사했어요');
   const t0 = Date.now(); clearInterval(poll);
   poll = setInterval(async () => { if (Date.now() - t0 > 30000) $('#late')?.classList.remove('hide'); const o = await api('/api/orders/' + order.id); if (o.status === 'paid') { order = o; clearInterval(poll); done(); } if (o.status === 'expired') { clearInterval(poll); app.innerHTML = '<h1>주문 시간이 지났어요</h1><p>QR을 다시 찍어주세요. 이미 보냈다면 판매자에게 말씀해주세요.</p>'; } }, 2000);
@@ -67,7 +68,7 @@ function done() {
   ${order.items.map((l) => `<div class="row"><span>${esc(l.name)}</span><b>× ${l.qty}</b></div>`).join('')}<div class="row"><span>금액</span><b>${won(order.amount)}</b></div>
   ${order.discount ? `<div class="row"><span>할인</span><b>${esc(order.label)} −${won(order.discount)}</b></div>` : ''}<div class="row"><span>주문</span><b>${order.no}</b></div><div class="row"><span>지금 시각</span><b id="clk"></b></div></div>
   <a class="btn b2" style="background:#fff" href="r.html?s=${S.shopId}&id=${order.id}">영수증 받기</a><div class="sp"></div>
-  <p style="text-align:center;font-weight:700;color:var(--green)">판매자에게 이 화면을 보여주세요</p>`;
+  <p style="text-align:center;font-weight:700;color:var(--green)">판매자에게 이 화면을 보여주세요</p><a class="back" style="align-self:center" href="?s=${S.shopId}">처음으로 · 더 사기</a>`;
   const tick = () => { const c = $('#clk'); if (c) c.textContent = new Date().toLocaleTimeString('ko-KR', { hour12: false }); }; tick(); setInterval(tick, 1000);
 }
 boot();

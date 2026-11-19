@@ -14,7 +14,7 @@
   if (o.status !== 'paid') { $('#app').innerHTML = '<h1>아직 결제가 확인되지 않았어요</h1><p>입금이 확인되면 영수증을 받을 수 있어요.</p>'; return; }
   const S = o.seller, biz = S.version === 'biz', dt = (t) => { const d = new Date(t), z = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}.${z(d.getMonth() + 1)}.${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`; };
   const how = { toss: '토스 송금', kakao: '카카오페이 송금', copy: '계좌 송금', transfer: '계좌 송금' }[o.method] || '계좌 송금';
-  $('#app').innerHTML = `<h1 class="noprint">구매 영수증</h1>
+  $('#app').innerHTML = `<div class="navr noprint"><a class="back" href="p.html?s=${S.shopId}&o=${o.id}">← 이전</a><a class="back" href="p.html?s=${S.shopId}">처음으로</a></div><h1 class="noprint">구매 영수증</h1>
   <div class="rc" id="rc"><div class="row"><b style="font-size:17px">${esc(S.name)}</b><span class="small mute">주문 ${o.no}</span></div>
   ${biz ? `<p class="small">사업자등록번호 ${esc(S.bizNo)}</p>` : ''}<p class="small">결제 ${dt(o.createdAt)} · 입금 확인 ${dt(o.paidAt)}</p><div class="rl"></div>
   ${o.items.map((l) => `<div class="row"><span>${esc(l.name)} ${won(l.price)} × ${l.qty}</span><span>${won(l.price * l.qty)}</span></div>`).join('')}

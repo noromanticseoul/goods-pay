@@ -18,5 +18,10 @@ function qrCanvas(text, size) { const q = qrcode(0, 'M'); q.addData(text); q.mak
 async function copy(t, msg) { try { await navigator.clipboard.writeText(t); } catch { const a = document.createElement('textarea'); a.value = t; document.body.append(a); a.select(); document.execCommand('copy'); a.remove(); } toast(msg || '복사했어요'); }
 // 사진을 1024px JPEG로 줄여서 dataURL로
 function shrink(file) {
-  return new Promise((ok) => { const img = new Image(); img.onload = () => { const k = Math.min(1, 1024 / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = img.width * k; c.height = img.height * k; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', 0.82)); }; img.src = URL.createObjectURL(file); });
+  return new Promise((ok, no) => {
+    const img = new Image(), u = URL.createObjectURL(file);
+    img.onload = () => { const k = Math.min(1, 1024 / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u); ok(c.toDataURL('image/jpeg', 0.82)); };
+    img.onerror = () => { URL.revokeObjectURL(u); no(new Error('사진을 열 수 없어요')); };
+    img.src = u;
+  });
 }
