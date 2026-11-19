@@ -1,0 +1,12 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  command = "echo ok"
+
+[functions]
+  included_files = ["core.js"]
+
+[[redirects]]
+  from = "/"
+  to = "/seller.html"
+  status = 200

@@ -17,12 +17,12 @@
   $('#app').innerHTML = `<h1 class="noprint">구매 영수증</h1>
   <div class="rc" id="rc"><div class="row"><b style="font-size:17px">${esc(S.name)}</b><span class="small mute">주문 ${o.no}</span></div>
   ${biz ? `<p class="small">사업자등록번호 ${esc(S.bizNo)}</p>` : ''}<p class="small">결제 ${dt(o.createdAt)} · 입금 확인 ${dt(o.paidAt)}</p><div class="rl"></div>
-  <div class="row"><span>${esc(o.product.name)} ${won(o.unitPrice)} × ${o.qty}</span><span>${won(o.subtotal)}</span></div>
+  ${o.items.map((l) => `<div class="row"><span>${esc(l.name)} ${won(l.price)} × ${l.qty}</span><span>${won(l.price * l.qty)}</span></div>`).join('')}
   ${o.discount ? `<div class="row"><span>${esc(o.label)} (${esc(o.code)})</span><span>−${won(o.discount)}</span></div>` : ''}
   ${o.check ? `<div class="row"><span>결제 확인용 금액</span><span>+${won(o.check)}</span></div>` : ''}<div class="rl"></div>
   <div class="row"><b>합계</b><b style="font-size:20px">${won(o.amount)}</b></div><div class="row small"><span class="mute">결제 방법</span><span>${how}</span></div>
   ${o.cashReceipt ? `<div class="row small"><span class="mute">현금영수증</span><span>${o.cashReceipt.issued ? '발행 완료' : '발행 요청됨'} (${o.cashReceipt.type === 'expense' ? '지출증빙' : '소득공제'})</span></div>` : ''}
-  <p class="small mute" style="text-align:center">진위 확인 ${esc(location.origin)}/r.html?id=${o.id}</p></div>
+  <p class="small mute" style="text-align:center">진위 확인 ${esc(location.href)}</p></div>
   ${biz ? (o.cashReceipt ? '' : `<div class="card noprint" id="cr"><b>현금영수증 받기</b><select id="ct"><option value="expense">회사 지출증빙 · 사업자번호</option><option value="income">개인 소득공제 · 휴대폰 번호</option></select><input id="cn" inputmode="numeric" placeholder="번호 입력"><button class="b2" id="cb">현금영수증 신청</button></div>`)
        : `<div class="warn noprint"><b>회사 경비로 쓰실 건가요?</b><br>사업자등록이 없는 판매자의 영수증이라 현금영수증·세금계산서는 아니에요. 인정 여부는 회사마다 달라서, 은행 앱 이체확인증과 함께 내시길 권해요.</div>`}
   <div class="sp"></div><button class="noprint" id="img">이미지로 저장</button><button class="b2 noprint" onclick="print()">PDF로 저장 (인쇄)</button>`;
