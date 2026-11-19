@@ -152,7 +152,7 @@ function cropImage(src) {
 function main() {
   clearInterval(poll); app.classList.add('wide');
   app.innerHTML = `<div class="row"><h1>판매 관리</h1></div>
-  <div class="tabs"><button data-t="dash">대시보드</button><button data-t="prod">상품</button><button data-t="code">할인 코드</button><button data-t="set">설정</button></div><div id="body" style="display:flex;flex-direction:column;gap:14px"></div>`;
+  <div class="tabs"><button data-t="dash">대시보드</button><button data-t="prod">상품</button><button data-t="code">쿠폰·할인</button><button data-t="set">설정</button></div><div id="body" style="display:flex;flex-direction:column;gap:14px"></div>`;
   app.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => { tab = b.dataset.t; render(); }));
   render(); poll = setInterval(() => tab === 'dash' && render(), 4000);
 }
@@ -181,8 +181,21 @@ async function render() {
     $('#addp').onclick = () => { B.innerHTML = NAV + '<h2>새 굿즈 등록</h2>' + productForm(); bindNav(render, toDash); bindProductForm(() => render()); };
   }
   if (tab === 'code') {
-    const cs = await api('/api/codes'); if (stale()) return;
-    B.innerHTML = `<p class="small">손님이 결제 직전 "할인 및 쿠폰" 칸에 입력하는 코드예요. 지인에게만 말이나 문자로 알려주세요.</p>` + (cs.map((c) => `<div class="card"><div class="row"><b style="font-size:18px">${esc(c.code)}</b><label><input type="checkbox" data-c="${esc(c.code)}" ${c.active ? 'checked' : ''} style="width:22px;height:22px" aria-label="코드 켜기"></label></div><div class="row"><span>${esc(c.label)}</span><span>${c.type === 'percent' ? c.value + '%' : won(c.value)} 할인</span></div><div class="row small"><span>사용 ${c.used}회 · ${c.maxUses ? '최대 ' + c.maxUses + '회' : '무제한'}</span></div></div>`).join('') || '<div class="card"><p>아직 만든 할인 코드가 없어요.</p></div>') + `<button id="addc">+ 코드 추가</button>`;
+    const [cs, bds, pps] = await Promise.all([api('/api/codes'), api('/api/bundles'), api('/api/products')]); if (stale()) return;
+    const pn = (id) => pps.find((p) => p.id === id)?.name || '(내린 굿즈)';
+    B.innerHTML = `<p class="small">손님이 결제 직전 "할인 및 쿠폰" 칸에 입력하는 코드예요. 지인에게만 말이나 문자로 알려주세요.</p>` + (cs.map((c) => `<div class="card"><div class="row"><b style="font-size:18px">${esc(c.code)}</b><label><input type="checkbox" data-c="${esc(c.code)}" ${c.active ? 'checked' : ''} style="width:22px;height:22px" aria-label="코드 켜기"></label></div><div class="row"><span>${esc(c.label)}</span><span>${c.type === 'percent' ? c.value + '%' : won(c.value)} 할인</span></div><div class="row small"><span>사용 ${c.used}회 · ${c.maxUses ? '최대 ' + c.maxUses + '회' : '무제한'}</span></div></div>`).join('') || '<div class="card"><p>아직 만든 할인 코드가 없어요.</p></div>') + `<button id="addc">+ 코드 추가</button>
+    <h2 style="margin-top:12px">결합 할인</h2><p class="small">고른 굿즈를 모두 담으면 코드 없이 자동으로 할인돼요. 코드와 겹치지 않고 더 큰 할인 하나만 적용돼요.</p>` + (bds.map((d) => `<div class="card"><div class="row"><b style="font-size:17px">${esc(d.name)}</b><label><input type="checkbox" data-b="${d.id}" ${d.active ? 'checked' : ''} style="width:22px;height:22px" aria-label="결합 할인 켜기"></label></div><p class="small">${d.productIds.map((id) => esc(pn(id))).join(' + ')}</p><div class="row"><span>${d.type === 'percent' ? d.value + '%' : won(d.value)} 할인 (세트당)</span><button class="b3 sm" data-bd="${d.id}">삭제</button></div></div>`).join('') || '<div class="card"><p>아직 만든 결합 할인이 없어요.</p></div>') + `<button id="addb" class="b2">+ 결합 할인 추가</button>`;
+    B.querySelectorAll('[data-b]').forEach((x) => (x.onchange = () => api('/api/bundles/' + x.dataset.b, { method: 'PATCH', body: { active: x.checked } })));
+    B.querySelectorAll('[data-bd]').forEach((x) => (x.onclick = async () => { if (confirm('이 결합 할인을 삭제할까요?')) { await api('/api/bundles/' + x.dataset.bd, { method: 'DELETE' }); render(); } }));
+    $('#addb').onclick = () => {
+      const ok = pps.filter((p) => !p.noDiscount);
+      B.innerHTML = NAV + `<h2>새 결합 할인</h2><p class="small">함께 담았을 때 할인할 굿즈를 2개 이상 골라주세요. 할인 제외 굿즈는 고를 수 없어요.</p>
+      <div class="card">${ok.map((p) => `<label class="row" style="font-size:15px"><span>${esc(p.name)} <span class="mute small">${won(p.price)}</span></span><input type="checkbox" data-bp="${p.id}" style="width:22px;height:22px"></label>`).join('') || '<p>할인을 쓸 수 있는 굿즈가 아직 없어요.</p>'}</div>
+      <label class="f">이름 · 손님에게 보일 이름<input id="bn" value="세트 할인"></label>
+      <div class="row"><select id="bt" style="width:40%"><option value="percent">비율 %</option><option value="amount">금액 원</option></select><input id="bv" inputmode="numeric" placeholder="10" style="width:58%"></div><p class="small">금액은 세트 하나당 깎는 값이에요. 세트를 2번 담으면 2번 깎여요.</p><div class="sp"></div><button id="bs">저장</button>`;
+      bindNav(render, toDash);
+      $('#bs').onclick = async () => { try { await api('/api/bundles', { body: { name: $('#bn').value, productIds: [...B.querySelectorAll('[data-bp]:checked')].map((x) => x.dataset.bp), type: $('#bt').value, value: $('#bv').value } }); toast('저장했어요'); render(); } catch (e) { toast(e.message); } };
+    };
     B.querySelectorAll('[data-c]').forEach((x) => (x.onchange = () => api('/api/codes/' + encodeURIComponent(x.dataset.c), { method: 'PATCH', body: { active: x.checked } })));
     $('#addc').onclick = () => {
       let uses = 0;

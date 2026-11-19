@@ -23,7 +23,7 @@ function page() {
     <div class="stp"><button data-mi="${p.id}" aria-label="${esc(p.name)} 빼기">−</button><b>${cart[p.id] || 0}</b><button data-pl="${p.id}" aria-label="${esc(p.name)} 더하기">+</button></div></div>`).join('') : '<p>아직 등록된 굿즈가 없어요.</p>'}</div><div class="c2 sticky">
   <div style="display:flex;flex-direction:column;gap:6px"><label for="cd" style="font-size:13px;font-weight:700">할인 및 쿠폰</label>
   <div style="display:flex;gap:8px"><input id="cd" placeholder="코드 입력" value="${esc(code || quote.tried || '')}"><button class="b3" id="ap">적용</button></div>
-  ${quote.label ? `<p class="ok">✓ ${esc(quote.label)}이 반영되었습니다</p>` : ''}${quote.err ? `<p class="err">${esc(quote.err)}</p>` : ''}</div>
+  ${quote.bundle ? `<p class="ok">✓ 결합 할인이 적용되었어요 · ${esc(quote.bundle.name)}</p>` : quote.label ? `<p class="ok">✓ ${esc(quote.label)}이 반영되었습니다</p>` : ''}${quote.note ? `<p class="small">${esc(quote.note)}</p>` : ''}<p class="small" style="color:var(--mute)">결합 할인과 코드는 더 큰 할인 하나만 적용돼요</p>${quote.err ? `<p class="err">${esc(quote.err)}</p>` : ''}</div>
   <div class="card" style="gap:4px"><div class="row"><p>상품 금액 · ${n}개</p><p>${won(quote.subtotal)}</p></div>
   ${quote.discount ? `<div class="row"><p style="color:var(--blue)">${esc(quote.label)}</p><p style="color:var(--blue)">−${won(quote.discount)}</p></div>` : ''}
   <div class="row"><b>보낼 금액</b><span class="amt">${won(quote.base)}</span></div></div>

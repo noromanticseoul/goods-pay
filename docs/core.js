@@ -2,7 +2,7 @@
 // 가게(판매자)마다 데이터 1묶음. 가게 QR 하나로 모든 굿즈를 골라 정확한 합계를 송금하고, 손님이 "송금했어요"를 누르면 결제 완료.
 (function (root) {
   const ORDER_TTL = 15 * 60 * 1000;
-  const empty = () => ({ seller: null, products: [], codes: [], orders: [] });
+  const empty = () => ({ seller: null, products: [], codes: [], bundles: [], orders: [] });
   const rnd = (n) => { const a = new Uint8Array(n); (globalThis.crypto || require('crypto').webcrypto).getRandomValues(a); return [...a].map((b) => b.toString(16).padStart(2, '0')).join(''); };
   const now = () => Date.now();
   const pick = (o, ks) => Object.fromEntries(ks.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
@@ -30,14 +30,28 @@
         lines.push({ productId: pr.id, name: pr.name, price: pr.price, qty, image: pr.images[0] || '', emoji: pr.emoji || '', noDiscount: !!pr.noDiscount });
       }
       const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0), eligible = lines.filter((l) => !l.noDiscount).reduce((a, l) => a + l.price * l.qty, 0);
-      let c = null, discount = 0;
+      // 결합 할인: 묶음 상품이 모두 담기면 자동 적용 (세트 수 = 가장 적게 담긴 상품 수량)
+      let bundle = null;
+      for (const bd of db.bundles || []) {
+        if (!bd.active || !bd.productIds || bd.productIds.length < 2) continue;
+        const ls = bd.productIds.map((id) => lines.find((l) => l.productId === id));
+        if (ls.some((l) => !l || l.noDiscount)) continue;
+        const sets = Math.min(...ls.map((l) => l.qty)), setPrice = ls.reduce((a, l) => a + l.price, 0);
+        const per = bd.type === 'percent' ? Math.round((setPrice * bd.value) / 100) : Math.min(bd.value, setPrice), d = per * sets;
+        if (d > 0 && (!bundle || d > bundle.discount)) bundle = { id: bd.id, name: bd.name, discount: d };
+      }
+      let c = null, cd = 0;
       if (code) {
         c = db.codes.find((x) => x.code.toUpperCase() === String(code).trim().toUpperCase());
         if (!(c && c.active && (!c.maxUses || c.used < c.maxUses))) return { error: '사용할 수 없는 코드예요' };
         if (lines.length && !eligible) return { error: '할인 코드를 쓸 수 없는 상품이에요' };
-        discount = c.type === 'percent' ? Math.round((eligible * c.value) / 100) : Math.min(c.value, eligible);
+        cd = c.type === 'percent' ? Math.round((eligible * c.value) / 100) : Math.min(c.value, eligible);
       }
-      return { lines, subtotal, discount, label: c ? c.label : '', code: c ? c.code : '', base: subtotal - discount };
+      // 규칙: 결합 할인과 코드는 겹치지 않고, 더 큰 할인 하나만 적용 (같으면 결합 할인)
+      let discount = 0, label = '', useCode = '', note = '';
+      if (bundle && (!c || bundle.discount >= cd)) { discount = bundle.discount; label = '결합 할인 · ' + bundle.name; if (c) note = `결합 할인 −${bundle.discount.toLocaleString('ko-KR')}원이 코드 할인 −${cd.toLocaleString('ko-KR')}원보다 커서 결합 할인만 적용했어요`; }
+      else if (c) { discount = cd; label = c.label; useCode = c.code; if (bundle) note = `코드 할인 −${cd.toLocaleString('ko-KR')}원이 결합 할인 −${bundle.discount.toLocaleString('ko-KR')}원보다 커서 코드 할인만 적용했어요`; }
+      return { lines, subtotal, discount, label, code: useCode, bundle: bundle && discount === bundle.discount && !useCode ? { name: bundle.name } : null, note, base: subtotal - discount };
     }
     function markPaid(o, how) { o.status = 'paid'; o.paidAt = now(); o.paidBy = how; if (o.code) { const c = db.codes.find((x) => x.code === o.code); if (c) c.used++; } }
     // 세팅
@@ -93,6 +107,18 @@
       db.codes.push(c); save(); return send(200, c);
     }
     if ((mm = p.match(/^\/api\/codes\/(.+)$/)) && m === 'PATCH') { const c = db.codes.find((x) => x.code === decodeURIComponent(mm[1])); if (c) c.active = !!body.active; save(); return send(200, c || {}); }
+    // 결합 할인 (판매자 전용)
+    if (p === '/api/bundles' && m === 'GET') return send(200, db.bundles || []);
+    if (p === '/api/bundles' && m === 'POST') {
+      const ids = [...new Set((body.productIds || []).map(String))].filter((id) => db.products.some((x) => x.id === id && !x.deleted && !x.noDiscount));
+      if (ids.length < 2) return send(400, { error: '할인을 쓸 수 있는 굿즈를 2개 이상 골라주세요' });
+      const type = body.type === 'amount' ? 'amount' : 'percent', value = parseInt(body.value, 10) || 0;
+      if (value <= 0 || (type === 'percent' && value > 90)) return send(400, { error: type === 'percent' ? '할인율은 1~90%로 넣어주세요' : '할인 금액을 넣어주세요' });
+      const bd = { id: rnd(4), name: String(body.name || '').trim().slice(0, 30) || '세트 할인', productIds: ids, type, value, active: true };
+      (db.bundles = db.bundles || []).push(bd); save(); return send(200, bd);
+    }
+    if ((mm = p.match(/^\/api\/bundles\/(\w+)$/)) && m === 'PATCH') { const bd = (db.bundles || []).find((x) => x.id === mm[1]); if (bd) bd.active = !!body.active; save(); return send(200, bd || {}); }
+    if ((mm = p.match(/^\/api\/bundles\/(\w+)$/)) && m === 'DELETE') { db.bundles = (db.bundles || []).filter((x) => x.id !== mm[1]); save(); return send(200, { ok: true }); }
     if (p === '/api/dashboard') {
       expire();
       const paid = db.orders.filter((o) => o.status === 'paid' && !o.test);
