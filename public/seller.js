@@ -60,7 +60,7 @@ function wizard() {
   if (s === 2) smartAccount($('#account'), $('#bank'));
   if (s === 3) {
     W.items = W.items || [];
-    app.innerHTML = head(3) + `<h1>팔 굿즈를<br>올려볼까요?</h1><p>나중에 상품 탭에서 언제든 추가할 수 있어요.</p>` + (W.items.map((p) => `<div class="li">${p.images[0] ? `<img class="th" src="${p.images[0]}" alt="">` : '<div class="th"></div>'}<div class="t">${esc(p.name)}<small>${won(p.price)}</small></div></div>`).join('') || '<div class="card"><p>아직 올린 굿즈가 없어요.</p></div>') +
+    app.innerHTML = head(3) + `<h1>팔 굿즈를<br>올려볼까요?</h1><p>나중에 상품 탭에서 언제든 추가할 수 있어요.</p>` + (W.items.map((p) => `<div class="li">${thumb(p)}<div class="t">${esc(p.name)}<small>${won(p.price)}</small></div></div>`).join('') || '<div class="card"><p>아직 올린 굿즈가 없어요.</p></div>') +
       `<button class="b2" id="addp">+ 굿즈 추가</button><div class="sp"></div><button id="nx">${W.items.length ? '다음' : '건너뛰고 다음'}</button>`;
     $('#addp').onclick = () => { app.innerHTML = NAV + '<h1>새 굿즈</h1>' + productForm(); bindNav(wizard, () => { W.step = 0; wizard(); }); bindProductForm((p) => { W.items.push(p); wizard(); }); };
     $('#nx').onclick = () => { W.step = 4; wizard(); }; bindBack(); return;
@@ -95,6 +95,9 @@ function finish() {
 function productForm() {
   return `<div id="pics" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
   <div style="display:flex;gap:8px"><label class="btn b2" style="flex:1">사진 촬영<input id="cam" type="file" accept="image/*" capture="environment" hidden></label><label class="btn b2" style="flex:1">앨범에서 선택<input id="alb" type="file" accept="image/*" multiple hidden></label></div>
+  <div class="f" style="font-size:13px;font-weight:600">사진 대신 이모지 <span class="mute small">선택 · 사진이 있으면 사진이 먼저 보여요</span></div>
+  <div class="eg" id="eg">${['🎁','🖼️','✉️','🏷️','🔑','📓','☕','👕','🧢','👜','🎧','📱','🧸','🌸','⭐','💌','🎨','✏️','🧵','🍪','🍰','🪩','🎀','📸'].map((e) => `<button type="button" data-e="${e}" aria-label="${e}">${e}</button>`).join('')}</div>
+  <label class="f"><input id="pe" placeholder="직접 입력 · 이모지 키보드로 한 글자" maxlength="8" style="text-align:center;font-size:20px"></label>
   <label class="f">상품명<input id="pn"></label><label class="f">가격 (원)<input id="pp" inputmode="numeric"></label>
   <label class="row" style="font-size:14px"><span>할인 코드 적용 <span class="mute small">한정판이면 끄기</span></span><input id="pd" type="checkbox" checked style="width:22px;height:22px"></label>
   <label class="f">최대 구매 수량<input id="pq" inputmode="numeric" value="10"></label><div class="sp"></div><button id="psave">등록하기</button>`;
@@ -103,10 +106,13 @@ function bindProductForm(done) {
   const imgs = []; // { src: 미리보기, data: 줄인 사진 }
   const draw = () => { $('#pics').innerHTML = imgs.map((m, i) => `<div style="position:relative"><img class="th" style="width:100%;height:auto;aspect-ratio:1;object-fit:cover" src="${m.src}" alt="고른 사진 ${i + 1}"><button class="b3 sm" data-rm="${i}" aria-label="사진 빼기" style="position:absolute;top:4px;right:4px;height:26px;padding:0 8px">✕</button>${m.data ? `<button class="b3 sm" data-crop="${i}" style="position:absolute;left:4px;bottom:4px;height:26px;padding:0 8px">자르기</button>` : '<span class="small" style="position:absolute;left:6px;bottom:4px;color:#fff;text-shadow:0 1px 2px #000">준비 중</span>'}</div>`).join(''); $('#pics').querySelectorAll('[data-rm]').forEach((x) => (x.onclick = () => { imgs.splice(+x.dataset.rm, 1); draw(); })); $('#pics').querySelectorAll('[data-crop]').forEach((x) => (x.onclick = async () => { const m = imgs[+x.dataset.crop]; const d = await cropImage(m.orig || m.data); if (d) { m.data = d; m.src = d; draw(); } })); };
   const add = (fl) => { const files = [...fl]; for (const f of files.slice(0, 5 - imgs.length)) { const m = { src: URL.createObjectURL(f), data: '' }; imgs.push(m); shrink(f).then(async (d) => { m.orig = d; m.data = d; m.src = d; draw(); if (files.length === 1) { const c = await cropImage(d); if (c) { m.data = c; m.src = c; draw(); } } }).catch(() => { imgs.splice(imgs.indexOf(m), 1); draw(); toast('이 사진은 열 수 없어요. 다른 사진을 골라주세요'); }); } draw(); };
+  const setE = (v) => { $('#pe').value = v; document.querySelectorAll('#eg button').forEach((b) => b.classList.toggle('on', b.dataset.e === v)); };
+  document.querySelectorAll('#eg button').forEach((b) => (b.onclick = () => setE($('#pe').value === b.dataset.e ? '' : b.dataset.e)));
+  $('#pe').oninput = () => { const t = $('#pe').value.trim(); document.querySelectorAll('#eg button').forEach((b) => b.classList.toggle('on', b.dataset.e === t)); };
   $('#cam').onchange = (e) => { add(e.target.files); e.target.value = ''; }; $('#alb').onchange = (e) => { add(e.target.files); e.target.value = ''; };
   $('#psave').onclick = async () => {
     if (imgs.some((m) => !m.data)) return toast('사진을 준비하는 중이에요. 잠시 후 눌러주세요');
-    const body = { name: $('#pn').value.trim(), price: $('#pp').value.replace(/\D/g, ''), noDiscount: !$('#pd').checked, maxQty: $('#pq').value, images: imgs.map((m) => m.data) };
+    const body = { name: $('#pn').value.trim(), price: $('#pp').value.replace(/\D/g, ''), noDiscount: !$('#pd').checked, maxQty: $('#pq').value, images: imgs.map((m) => m.data), emoji: $('#pe').value.trim() };
     if (!body.name || !body.price) return toast('상품명과 가격을 넣어주세요');
     $('#psave').disabled = true; $('#psave').textContent = '올리는 중…';
     try { done(await api('/api/products', { body })); } catch (e) { toast(e.message); $('#psave').disabled = false; $('#psave').textContent = '등록하기'; }
@@ -160,7 +166,7 @@ async function render() {
     const crq = d.orders.filter((o) => o.cashReceipt && !o.cashReceipt.issued);
     B.innerHTML = `<div style="display:flex;gap:10px"><div class="card" style="flex:1"><p class="small">매출</p><b style="font-size:19px">${won(d.stats.sales)}</b></div><div class="card" style="flex:1"><p class="small">판매</p><b style="font-size:19px">${d.stats.count}건</b></div></div>
     ${crq.length ? `<div class="card"><b>현금영수증 요청 ${crq.length}건</b><p class="small">홈택스에서 발행한 뒤 완료를 눌러주세요.</p>${crq.map((o) => `<div class="row"><span>${o.no} · ${won(o.amount)} · ${o.cashReceipt.type === 'expense' ? '지출증빙' : '소득공제'} ${esc(o.cashReceipt.number)}</span><button class="b3 sm" data-cr="${o.id}">완료</button></div>`).join('')}</div>` : ''}
-    <div>${d.orders.filter((o) => !o.test).slice(0, 30).map((o) => `<div class="li">${o.items?.[0]?.image ? `<img class="th" src="${o.items[0].image}" alt="">` : '<div class="th"></div>'}<div class="t">${esc(o.title)} · ${o.no}<small>${won(o.amount)} · ${time(o.createdAt)}${o.code ? ' · 코드 ' + esc(o.code) : ''}</small></div>${badge(o)}</div>`).join('') || '<p>아직 주문이 없어요.</p>'}</div>`;
+    <div>${d.orders.filter((o) => !o.test).slice(0, 30).map((o) => `<div class="li">${thumb(o.items?.[0] || {})}<div class="t">${esc(o.title)} · ${o.no}<small>${won(o.amount)} · ${time(o.createdAt)}${o.code ? ' · 코드 ' + esc(o.code) : ''}</small></div>${badge(o)}</div>`).join('') || '<p>아직 주문이 없어요.</p>'}</div>`;
     B.querySelectorAll('[data-cr]').forEach((b) => (b.onclick = async () => { await api(`/api/orders/${b.dataset.cr}/cash-receipt-issued`, { body: {} }); render(); }));
   }
   if (tab === 'prod') {
@@ -168,7 +174,7 @@ async function render() {
     B.innerHTML = `<div class="cols"><div class="c2 sticky"><div class="card" style="align-items:center;text-align:center"><b style="font-size:17px">가게 QR 하나로 모든 굿즈를 팔아요</b><p class="small">손님이 찍으면 굿즈 목록이 열리고, 골라서 한 번에 결제해요.</p><div class="qr" id="sq"></div>
     <div style="display:flex;gap:8px;width:100%"><a class="btn b3" style="flex:1;height:50px" href="qr.html?s=${me.shopId}&mode=show" target="_blank">크게 띄우기</a><a class="btn b3" style="flex:1;height:50px" href="qr.html?s=${me.shopId}&mode=print" target="_blank">A4로 인쇄</a></div>
     <div style="display:flex;gap:8px;width:100%"><button class="b2" id="sqdl">QR 이미지 저장</button><a class="btn b2" href="${url}" target="_blank">손님 화면 보기</a></div></div></div>
-    <div class="c1"><h2>굿즈 ${ps.length}개</h2><div>` + ps.map((p) => `<div class="li">${p.images[0] ? `<img class="th" src="${p.images[0]}" alt="">` : '<div class="th"></div>'}<div class="t">${esc(p.name)}<small>${won(p.price)}${p.noDiscount ? ' · 할인 제외' : ''} · 최대 ${p.maxQty}개</small></div><button class="b3 sm" data-del="${p.id}">내리기</button></div>`).join('') + `</div><button id="addp">+ 굿즈 추가</button></div></div>`;
+    <div class="c1"><h2>굿즈 ${ps.length}개</h2><div>` + ps.map((p) => `<div class="li">${thumb(p)}<div class="t">${esc(p.name)}<small>${won(p.price)}${p.noDiscount ? ' · 할인 제외' : ''} · 최대 ${p.maxQty}개</small></div><button class="b3 sm" data-del="${p.id}">내리기</button></div>`).join('') + `</div><button id="addp">+ 굿즈 추가</button></div></div>`;
     const c = qrCanvas(url, 220); c.setAttribute('aria-label', '가게 결제 QR'); $('#sq').append(c);
     $('#sqdl').onclick = () => { const a = document.createElement('a'); a.download = `가게QR_${me.name || me.shopId}.png`; a.href = qrCanvas(url, 1000).toDataURL(); a.click(); };
     B.querySelectorAll('[data-del]').forEach((b) => (b.onclick = async () => { if (confirm('이 굿즈를 내릴까요?')) { await api('/api/products/' + b.dataset.del, { method: 'DELETE' }); render(); } }));

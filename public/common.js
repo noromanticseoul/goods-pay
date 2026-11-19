@@ -25,3 +25,12 @@ function shrink(file) {
     img.src = u;
   });
 }
+
+// 상품 썸네일: 사진 > 이모지 > 빈 타일
+const TINTS = ['#E8F3FF', '#FFF3E0', '#E6F8EF', '#FDE8EC', '#F1EAFE', '#FFF8D6'];
+const thumb = (o, cls = 'th') => {
+  const src = (o.images && o.images[0]) || o.image || '';
+  if (src) return `<img class="${cls}" src="${src}" alt="">`;
+  if (o.emoji) { let h = 0; for (const c of o.emoji) h = (h * 31 + c.codePointAt(0)) >>> 0; return `<div class="${cls} em" style="--tb:${TINTS[h % TINTS.length]}" role="img" aria-label="${esc(o.name || '굿즈')}">${esc(o.emoji)}</div>`; }
+  return `<div class="${cls} ni"></div>`;
+};

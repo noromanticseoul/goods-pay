@@ -8,6 +8,8 @@
   const pick = (o, ks) => Object.fromEntries(ks.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
 
   // 한 가게의 db로 요청 1건 처리
+  // 이모지 한 글자(그래핀 1개)만 허용
+  const cleanEmoji = (v) => { const t = String(v || '').trim(); if (!t) return ''; const g = typeof Intl !== 'undefined' && Intl.Segmenter ? [...new Intl.Segmenter().segment(t)][0].segment : Array.from(t)[0]; return /[\p{Extended_Pictographic}\p{Regional_Indicator}]/u.test(g) ? g.slice(0, 16) : ''; };
   function run(db, req, shopId, imageUrl) {
     const p = req.url.pathname, m = req.method, body = req.body || {}, q = req.url.searchParams;
     const out = { dirty: false, images: [] };
@@ -16,7 +18,7 @@
     const isAdmin = () => db.seller && req.headers['x-admin-key'] === db.seller.adminKey;
     const expire = () => db.orders.forEach((o) => { if (o.status === 'pending' && now() - o.createdAt > ORDER_TTL) o.status = 'expired'; });
     const pub = (s) => s && { shopId: s.shopId, name: s.bizName || s.name, version: s.version, bank: s.bank, account: s.account, holder: s.holder ? s.holder[0] + '*'.repeat(Math.max(1, s.holder.length - 1)) : '', tossId: s.tossId, kakaoLink: s.kakaoLink, bizNo: s.version === 'biz' ? s.bizNo : '' };
-    const orderView = (o) => o && { ...o, product: { name: o.title, images: o.items[0] && o.items[0].image ? [o.items[0].image] : [] }, seller: pub(db.seller) };
+    const orderView = (o) => o && { ...o, product: { name: o.title, images: o.items[0] && o.items[0].image ? [o.items[0].image] : [], emoji: (o.items[0] && o.items[0].emoji) || '' }, seller: pub(db.seller) };
     const active = () => db.products.filter((x) => !x.deleted);
 
     // 장바구니 + 할인 코드로 금액 계산 (코드는 할인 허용 상품에만)
@@ -25,7 +27,7 @@
       for (const it of items || []) {
         const pr = db.products.find((x) => x.id === it.productId && !x.deleted); if (!pr) continue;
         const qty = Math.max(0, Math.min(pr.maxQty || 10, parseInt(it.qty, 10) || 0)); if (!qty) continue;
-        lines.push({ productId: pr.id, name: pr.name, price: pr.price, qty, image: pr.images[0] || '', noDiscount: !!pr.noDiscount });
+        lines.push({ productId: pr.id, name: pr.name, price: pr.price, qty, image: pr.images[0] || '', emoji: pr.emoji || '', noDiscount: !!pr.noDiscount });
       }
       const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0), eligible = lines.filter((l) => !l.noDiscount).reduce((a, l) => a + l.price * l.qty, 0);
       let c = null, discount = 0;
@@ -75,7 +77,7 @@
     if (p === '/api/seller') return send(200, db.seller);
     if (p === '/api/products' && m === 'GET') return send(200, active());
     if (p === '/api/products' && m === 'POST') {
-      const pr = { id: rnd(4), name: String(body.name || '').slice(0, 60), price: parseInt(body.price, 10) || 0, noDiscount: !!body.noDiscount, maxQty: parseInt(body.maxQty, 10) || 10, images: [] };
+      const pr = { id: rnd(4), name: String(body.name || '').slice(0, 60), price: parseInt(body.price, 10) || 0, noDiscount: !!body.noDiscount, maxQty: parseInt(body.maxQty, 10) || 10, images: [], emoji: cleanEmoji(body.emoji) };
       for (const d of (body.images || []).slice(0, 5)) {
         const mt = /^data:image\/(jpeg|png|webp);base64,(.+)$/.exec(d); if (!mt) continue;
         const name = rnd(8) + '.' + (mt[1] === 'jpeg' ? 'jpg' : mt[1]);

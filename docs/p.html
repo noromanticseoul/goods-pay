@@ -1,7 +1,7 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>굿즈 고르고 결제</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css"><style>.gd{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--bg)}.gd img,.gd .ni{width:64px;height:64px;border-radius:12px;object-fit:cover;background:var(--bg);flex:none}.gd .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:15px}.gd .t span{color:var(--sub);font-size:14px}</style></head><body><div class="app" id="app"><p>불러오는 중…</p></div>
+<link rel="stylesheet" href="style.css"><style>.gd{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--bg)}.gd img,.gd .gi{width:64px;height:64px;border-radius:12px;object-fit:cover;background:var(--bg);flex:none}.gd .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:15px}.gd .t span{color:var(--sub);font-size:14px}</style></head><body><div class="app" id="app"><p>불러오는 중…</p></div>
 <script src="common.js"></script><script src="core.js"></script><script src="demo-api.js"></script>
 <script>
 const app = $('#app'), Q = new URLSearchParams(location.search);
@@ -19,7 +19,7 @@ function page() {
   const n = items().reduce((a, i) => a + i.qty, 0);
   app.classList.add('wide');
   app.innerHTML = `<div><p class="small">${S.version === 'biz' ? '사업자 · ' : ''}굿즈 ${PS.length}개</p><h1>${esc(S.name)}</h1></div>
-  <div class="cols"><div class="c1 gl">${PS.length ? PS.map((p) => `<div class="gd">${p.images[0] ? `<img src="${p.images[0]}" alt="">` : '<div class="ni"></div>'}<div class="t"><b>${esc(p.name)}</b><span>${won(p.price)}</span></div>
+  <div class="cols"><div class="c1 gl">${PS.length ? PS.map((p) => `<div class="gd">${thumb(p, 'gi')}<div class="t"><b>${esc(p.name)}</b><span>${won(p.price)}</span></div>
     <div class="stp"><button data-mi="${p.id}" aria-label="${esc(p.name)} 빼기">−</button><b>${cart[p.id] || 0}</b><button data-pl="${p.id}" aria-label="${esc(p.name)} 더하기">+</button></div></div>`).join('') : '<p>아직 등록된 굿즈가 없어요.</p>'}</div><div class="c2 sticky">
   <div style="display:flex;flex-direction:column;gap:6px"><label for="cd" style="font-size:13px;font-weight:700">할인 및 쿠폰</label>
   <div style="display:flex;gap:8px"><input id="cd" placeholder="코드 입력" value="${esc(code || quote.tried || '')}"><button class="b3" id="ap">적용</button></div>
