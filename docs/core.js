@@ -1,21 +1,11 @@
 // 1인 굿즈 판매자를 위한 굿즈 결제시스템 - 공통 로직 (로컬 서버 · Netlify 함수 · 브라우저 데모가 함께 씀)
-// 가게(판매자)마다 데이터 1묶음. 가게 QR 하나로 모든 굿즈를 장바구니처럼 골라 결제.
+// 가게(판매자)마다 데이터 1묶음. 가게 QR 하나로 모든 굿즈를 골라 정확한 합계를 송금하고, 손님이 "송금했어요"를 누르면 결제 완료.
 (function (root) {
   const ORDER_TTL = 15 * 60 * 1000;
-  const empty = () => ({ seller: null, products: [], codes: [], orders: [], deposits: [] });
+  const empty = () => ({ seller: null, products: [], codes: [], orders: [] });
   const rnd = (n) => { const a = new Uint8Array(n); (globalThis.crypto || require('crypto').webcrypto).getRandomValues(a); return [...a].map((b) => b.toString(16).padStart(2, '0')).join(''); };
   const now = () => Date.now();
   const pick = (o, ks) => Object.fromEntries(ks.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
-
-  // 입금 알림 문구에서 금액과 입금자 추출
-  function parseDeposit(text) {
-    const t = String(text).split(/잔액|잔고/)[0];
-    const m = t.match(/([0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)\s*원/);
-    if (!m) return null;
-    const amount = parseInt(m[1].replace(/,/g, ''), 10);
-    const s = t.match(/([가-힣A-Za-z*]{2,10})\s*님/) || t.slice(m.index + m[0].length).match(/([가-힣A-Za-z*]{2,10})/);
-    return { amount, sender: s ? s[1] : '' };
-  }
 
   // 한 가게의 db로 요청 1건 처리
   function run(db, req, shopId, imageUrl) {
@@ -47,30 +37,11 @@
       }
       return { lines, subtotal, discount, label: c ? c.label : '', code: c ? c.code : '', base: subtotal - discount };
     }
-    function offset(base) {
-      const used = new Set(db.orders.filter((o) => o.status === 'pending').map((o) => o.amount));
-      const tries = [...Array(99).keys()].map((i) => i + 1).sort(() => Math.random() - 0.5);
-      for (const k of tries) if (!used.has(base + k)) return k;
-      return 0;
-    }
     function markPaid(o, how) { o.status = 'paid'; o.paidAt = now(); o.paidBy = how; if (o.code) { const c = db.codes.find((x) => x.code === o.code); if (c) c.used++; } }
-    function handleDeposit(text, source) {
-      expire();
-      const d = parseDeposit(text);
-      const dep = { id: rnd(6), raw: String(text).slice(0, 300), source, receivedAt: now(), amount: d ? d.amount : null, sender: d ? d.sender : '', orderId: null };
-      if (d) {
-        let cands = db.orders.filter((o) => o.status === 'pending' && o.amount === d.amount);
-        if (cands.length > 1) cands = cands.filter((o) => text.includes(o.no));
-        if (cands.length === 1) { markPaid(cands[0], 'auto'); dep.orderId = cands[0].id; }
-      }
-      db.deposits.unshift(dep); db.deposits = db.deposits.slice(0, 200); db.seller.lastDepositAt = dep.receivedAt; save();
-      return dep;
-    }
-
     // 세팅
     if (p === '/api/setup' && m === 'POST') {
       if (db.seller && !isAdmin()) return send(403, { error: '이미 세팅된 가게예요' });
-      const keep = db.seller || { shopId, adminKey: shopId + '.' + rnd(12), webhookToken: rnd(8), createdAt: now() };
+      const keep = db.seller || { shopId, adminKey: shopId + '.' + rnd(12), createdAt: now() };
       db.seller = { ...keep, ...pick(body, ['name', 'version', 'bank', 'account', 'holder', 'tossId', 'kakaoLink', 'bizNo', 'bizName', 'cashReceipt']) };
       save(); return send(200, db.seller);
     }
@@ -87,21 +58,17 @@
       else r = price(body.items, body.code);
       if (r.error) return send(400, r);
       if (!r.lines.length) return send(400, { error: '굿즈를 1개 이상 골라주세요' });
-      const k = offset(r.base), items = r.lines.map(({ noDiscount, ...l }) => l);
-      const o = { id: rnd(6), no: 'HS' + String(db.orders.length + 1).padStart(2, '0'), items, title: items.map((l) => `${l.name} × ${l.qty}`).join(', '), qty: items.reduce((a, l) => a + l.qty, 0), subtotal: r.subtotal, discount: r.discount, label: r.label, code: r.code, base: r.base, check: k, amount: r.base + k, status: 'pending', method: body.method || 'transfer', createdAt: now(), test: !!body.test };
+      const items = r.lines.map(({ noDiscount, ...l }) => l);
+      const o = { id: rnd(6), no: 'HS' + String(db.orders.length + 1).padStart(2, '0'), items, title: items.map((l) => `${l.name} × ${l.qty}`).join(', '), qty: items.reduce((a, l) => a + l.qty, 0), subtotal: r.subtotal, discount: r.discount, label: r.label, code: r.code, base: r.base, check: 0, amount: r.base, status: 'pending', method: body.method || 'transfer', createdAt: now(), test: !!body.test };
       db.orders.unshift(o); db.orders = db.orders.slice(0, 500); save(); return send(200, orderView(o));
     }
     if ((mm = p.match(/^\/api\/orders\/(\w+)$/)) && m === 'GET') { expire(); const o = db.orders.find((x) => x.id === mm[1]); return o ? send(200, orderView(o)) : send(404, { error: '주문 없음' }); }
+    // 손님이 "송금했어요"를 누르면 바로 결제 완료
+    if ((mm = p.match(/^\/api\/orders\/(\w+)\/sent$/)) && m === 'POST') { expire(); const o = db.orders.find((x) => x.id === mm[1]); if (!o) return send(404, { error: '주문 없음' }); if (o.status === 'expired') return send(400, { error: '주문 시간이 지났어요. 다시 골라주세요' }); if (o.status !== 'paid') { markPaid(o, 'buyer'); save(); } return send(200, orderView(o)); }
     if ((mm = p.match(/^\/api\/orders\/(\w+)\/cash-receipt$/)) && m === 'POST') {
       const o = db.orders.find((x) => x.id === mm[1]); if (!o || !db.seller || db.seller.version !== 'biz') return send(400, { error: '현금영수증은 사업자 판매자만 가능해요' });
       o.cashReceipt = { type: body.type === 'expense' ? 'expense' : 'income', number: String(body.number || '').replace(/[^0-9]/g, ''), requestedAt: now(), issued: false };
       save(); return send(200, o);
-    }
-    // 입금 알림 웹훅 (MacroDroid / 단축어)
-    if (p === '/api/deposit' && m === 'POST') {
-      if (!db.seller || q.get('token') !== db.seller.webhookToken) return send(403, { error: 'token' });
-      const text = body.text || [body.title, body.body].filter(Boolean).join(' ');
-      return send(200, handleDeposit(text, body.source || 'webhook'));
     }
     // 이하 판매자 전용
     if (!isAdmin()) return send(401, { error: '판매자 키 필요' });
@@ -127,15 +94,10 @@
     if (p === '/api/dashboard') {
       expire();
       const paid = db.orders.filter((o) => o.status === 'paid' && !o.test);
-      return send(200, { seller: db.seller, orders: db.orders.slice(0, 100).map(orderView), deposits: db.deposits.slice(0, 50), stats: { sales: paid.reduce((a, o) => a + o.amount, 0), count: paid.length, discount: paid.reduce((a, o) => a + o.discount, 0) } });
+      return send(200, { seller: db.seller, orders: db.orders.slice(0, 100).map(orderView), stats: { sales: paid.reduce((a, o) => a + o.amount, 0), count: paid.length, discount: paid.reduce((a, o) => a + o.discount, 0) } });
     }
     if ((mm = p.match(/^\/api\/orders\/(\w+)\/approve$/)) && m === 'POST') { const o = db.orders.find((x) => x.id === mm[1]); if (o && o.status !== 'paid') markPaid(o, body.cash ? 'cash' : 'manual'); save(); return send(200, o || {}); }
-    if ((mm = p.match(/^\/api\/deposits\/(\w+)\/link$/)) && m === 'POST') {
-      const d = db.deposits.find((x) => x.id === mm[1]), o = db.orders.find((x) => x.id === body.orderId);
-      if (!d || !o) return send(404, { error: '없음' }); markPaid(o, 'linked'); d.orderId = o.id; save(); return send(200, o);
-    }
     if ((mm = p.match(/^\/api\/orders\/(\w+)\/cash-receipt-issued$/)) && m === 'POST') { const o = db.orders.find((x) => x.id === mm[1]); if (o && o.cashReceipt) o.cashReceipt.issued = true; save(); return send(200, o || {}); }
-    if (p === '/api/simulate-deposit' && m === 'POST') return send(200, handleDeposit(body.text, 'simulate'));
     return send(404, { error: 'not found' });
   }
 
@@ -153,6 +115,6 @@
     return { code: out.code, body: out.body };
   }
 
-  const api = { handle, parseDeposit, empty };
+  const api = { handle, empty };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.GoodsCore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

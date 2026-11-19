@@ -9,14 +9,20 @@ body{background:#fff}
 .show h1{font-size:clamp(24px,6vw,44px)}.show p{font-size:clamp(15px,3vw,20px)}
 .show canvas{width:min(78vw,62vh);height:auto;image-rendering:pixelated}
 .tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.tools .btn,.tools button{width:auto;padding:0 18px;height:46px;font-size:14px}
-.a4{width:210mm;min-height:297mm;margin:0 auto;box-sizing:border-box;padding:22mm 18mm;display:flex;flex-direction:column;align-items:center;gap:9mm;text-align:center}
-.a4 .k{font-size:15pt;font-weight:700;color:var(--blue)}.a4 h1{font-size:34pt;line-height:1.25}
-.a4 canvas{width:118mm;height:118mm;image-rendering:pixelated}
-.steps{display:flex;gap:6mm;width:100%}.steps div{flex:1;background:var(--soft);border-radius:5mm;padding:6mm 4mm;font-size:12.5pt;line-height:1.5}.steps b{display:block;font-size:20pt;color:var(--blue);margin-bottom:2mm}
-.a4 .pay{font-size:12pt;color:var(--sub)}
-@page{size:A4;margin:0}
-@media print{.noprint{display:none!important}.a4{padding:20mm 16mm}}
-@media screen{.a4wrap{background:var(--bg);padding:16px 0}.a4{background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.08);max-width:100%}}
+.a4{width:210mm;height:297mm;margin:0 auto;box-sizing:border-box;padding:22mm 18mm 16mm;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;background:#fff;overflow:hidden}
+.a4 .top{display:flex;flex-direction:column;align-items:center;gap:5mm}
+.a4 .k{display:inline-block;padding:2.2mm 5mm;border-radius:99mm;background:#E8F3FF;color:var(--blue);font-size:14pt;font-weight:700;letter-spacing:-.01em}
+.a4 h1{font-size:40pt;line-height:1.2;letter-spacing:-.04em;margin:0;max-width:170mm;text-wrap:balance}
+.a4 .qrf{padding:7mm;border:1.2mm solid #191F28;border-radius:9mm;display:flex;flex-direction:column;align-items:center;gap:4mm}
+.a4 canvas{width:128mm;height:128mm;image-rendering:pixelated;display:block}
+.a4 .qrf p{font-size:15pt;font-weight:700;color:var(--ink);margin:0}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;width:100%}
+.steps div{background:var(--soft);border-radius:5mm;padding:6mm 3mm;font-size:13pt;line-height:1.5;color:var(--ink);font-weight:600;word-break:keep-all}
+.steps b{display:block;font-size:22pt;color:var(--blue);margin-bottom:2mm;line-height:1}
+.a4 .pay{font-size:12pt;color:var(--sub);margin:0;line-height:1.6;word-break:keep-all}
+@page{size:A4 portrait;margin:0}
+@media print{html,body{background:#fff}.noprint{display:none!important}.a4wrap{padding:0;background:#fff}.a4{zoom:1!important;box-shadow:none!important;margin:0}}
+@media screen{.a4wrap{background:var(--bg);padding:16px 0 32px;min-height:100vh}.a4{box-shadow:0 2px 16px rgba(0,0,0,.1)}}
 </style></head><body><div id="app"><p style="padding:24px">불러오는 중…</p></div>
 <script src="/common.js"></script>
 <script>
@@ -26,9 +32,12 @@ body{background:#fff}
   const url = shopUrl(S.shopId), pays = ['계좌이체', S.tossId && '토스', S.kakaoLink && '카카오페이'].filter(Boolean).join(' · ');
   if (mode === 'print') {
     app.innerHTML = `<div class="noprint tools" style="padding:16px"><button onclick="print()">A4로 인쇄 · PDF 저장</button><a class="btn b2" href="?s=${S.shopId}&mode=show">크게 띄우기</a></div>
-    <div class="a4wrap"><div class="a4"><p class="k">QR 찍고 바로 결제</p><h1>${esc(S.name)}</h1><div id="q"></div>
-    <div class="steps"><div><b>1</b>휴대폰 카메라로<br>QR을 찍어요</div><div><b>2</b>굿즈와 수량을 고르고<br>송금해요</div><div><b>3</b>결제 완료 화면을<br>보여주세요</div></div>
-    <p class="pay">${pays}로 결제할 수 있어요 · 지인 할인 코드는 결제 화면 "할인 및 쿠폰"에</p></div></div>`;
+    <div class="a4wrap"><div class="a4"><div class="top"><span class="k">QR 찍고 바로 결제</span><h1>${esc(S.name)}</h1></div>
+    <div class="qrf"><div id="q"></div><p>휴대폰 카메라로 찍어주세요</p></div>
+    <div class="steps"><div><b>1</b>카메라로<br>QR 찍기</div><div><b>2</b>굿즈와 수량<br>골라서 송금</div><div><b>3</b>결제 완료 화면<br>보여주기</div></div>
+    <p class="pay">${pays}로 결제할 수 있어요<br>지인 할인 코드는 결제 화면 "할인 및 쿠폰"에 넣어주세요</p></div></div>`;
+    const fit = () => { const a = $('.a4'); if (a) a.style.zoom = Math.min(1, (innerWidth - 24) / 794); };
+    fit(); addEventListener('resize', fit);
     $('#q').append(qrCanvas(url, 1000));
     setTimeout(() => print(), 600);
   } else {
