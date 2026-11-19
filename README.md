@@ -16,8 +16,10 @@
 
 - 이 저장소의 **Settings → Pages → Branch: `main`, 폴더: `/docs`** 를 켜면 아래 주소로 열립니다.
   - 데모: `https://<아이디>.github.io/<저장소>/`
-  - 발표 자료: `https://<아이디>.github.io/<저장소>/slides.html` (← → 키로 넘기기)
-- 또는 내려받은 뒤 `docs/index.html`, `docs/slides.html`을 브라우저로 바로 열어도 됩니다.
+  - 발표 자료: `https://<아이디>.github.io/<저장소>/1%EC%9D%B8%20%EA%B5%BF%EC%A6%88%20%ED%8C%90%EB%A7%A4%EC%9E%90%EB%A5%BC%20%EC%9C%84%ED%95%9C%20%EA%B5%BF%EC%A6%88%20%EA%B2%B0%EC%A0%9C%EC%8B%9C%EC%8A%A4%ED%85%9C.html` (← → 키로 넘기기)
+- 또는 내려받은 뒤 `docs/index.html`, `docs/1인 굿즈 판매자를 위한 굿즈 결제시스템.html`을 브라우저로 바로 열어도 됩니다.
+
+**발표 자료 PDF 다운로드**: [1인 굿즈 판매자를 위한 굿즈 결제시스템.pdf](docs/1%EC%9D%B8%20%EA%B5%BF%EC%A6%88%20%ED%8C%90%EB%A7%A4%EC%9E%90%EB%A5%BC%20%EC%9C%84%ED%95%9C%20%EA%B5%BF%EC%A6%88%20%EA%B2%B0%EC%A0%9C%EC%8B%9C%EC%8A%A4%ED%85%9C.pdf) (가로 16:9, 24장) · 데모 화면 위쪽 바의 "PDF 받기"로도 받을 수 있어요.
 
 데모 순서: 판매자 세팅 → 상품 탭 "결제 화면 보기" → 구매자 화면에서 수량·코드 입력 → 위쪽 검은 바 "판매자 폰에 입금 알림 보내기" → 결제 완료 → 영수증.
 
@@ -65,7 +67,7 @@ ZIP으로 받으려면 GitHub의 **Code → Download ZIP** 을 누른 뒤 압축
 |---|---|
 | `server.js` | 의존성 없는 Node 서버 (API, 웹훅, 파일 저장) |
 | `public/` | 실제 서비스 화면: 판매자 `/`, 구매자 `/p.html?id=상품ID`, 영수증 `/r.html?id=주문ID` |
-| `docs/` | 설치 없는 데모(`demo-api.js`가 서버 대신 브라우저 저장소 사용)와 발표 자료 `slides.html` |
+| `docs/` | 설치 없는 데모(`demo-api.js`가 서버 대신 브라우저 저장소 사용)와 발표 자료 `1인 굿즈 판매자를 위한 굿즈 결제시스템.html` / `.pdf` |
 
 ## 아직 안 된 것
 
