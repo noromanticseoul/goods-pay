@@ -43,7 +43,7 @@ function wizard() {
   if (s === 1) {
     app.innerHTML = head(1) + `<h1>판매 정보를<br>알려주세요</h1><label class="f">판매자 이름<input id="name" value="${esc(d.name || '')}" placeholder="예: homesick 굿즈"></label>
     <div class="f" style="font-size:13px;font-weight:600">어떤 버전으로 시작할까요?</div>
-    <button class="vc ${d.version === 'none' ? 'on' : ''}" data-v="none"><span class="vh">사업자 없는 버전<span class="tag tg">오늘 바로</span></span><span class="small mute">송금 결제 · 입금 자동 확인 · 할인 코드 · 구매 영수증</span></button>
+    <button class="vc ${d.version === 'none' ? 'on' : ''}" data-v="none"><span class="vh">사업자 없는 버전<span class="tag tg">오늘 바로</span></span><span class="small mute">송금 결제 · 할인 코드 · 구매 영수증 · 매출 목록</span></button>
     <button class="vc ${d.version === 'biz' ? 'on' : ''}" data-v="biz"><span class="vh">사업자 있는 버전<span class="tag to">심사 필요</span></span><span class="small mute">위 기능 + 카드 결제 · 현금영수증. 카드 결제는 PG 심사에 수일~2주 걸려요. 그동안은 송금으로 판매돼요.</span></button>
     <div id="biz" class="${d.version === 'biz' ? '' : 'hide'}" style="display:flex;flex-direction:column;gap:12px"><label class="f">사업자등록번호<input id="bizNo" inputmode="numeric" value="${esc(d.bizNo || '')}" placeholder="123-45-67890"></label><label class="f">상호<input id="bizName" value="${esc(d.bizName || '')}"></label>
     <div class="warn">카드 결제는 세팅이 끝난 뒤 설정에서 신청해요. 심사가 끝나기 전까지는 송금으로 판매돼요.</div></div>
